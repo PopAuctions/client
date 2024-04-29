@@ -1,11 +1,12 @@
-
 export const CAMERA = "camera";
 export const MIC = "mic";
 
+/**
+* Returns all devices available on the current device
+*/
 export const getDevices = async () => {
     // Prevents issues on Safari/FF so devices are not blank
     await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-
     const devices = await navigator.mediaDevices.enumerateDevices();
 
     // Get all video devices
@@ -24,11 +25,11 @@ export const getDevices = async () => {
 };
 
 /**
- * Fetches the media stream for a specified device ID and type.
- * @param {string} deviceId - The device ID.
- * @param {string} mediaType - The media type (CAMERA or MIC).
- * @returns {Promise<MediaStream>} - The resulting media stream.
- */
+* Gets the media stream for the specified device ID and type.
+* @param {string} deviceId - The device ID.
+* @param {string} mediaType - The type of media ('video' or 'audio').
+* @returns {Promise<MediaStream>} - The resulting media stream.
+*/
 export const getMediaForDevices = async (deviceId, mediaType) => {
     const mediaConstraints = {
         video: {
@@ -44,7 +45,6 @@ export const getMediaForDevices = async (deviceId, mediaType) => {
 
 // Function toggles the mute status of the specified device type (CAMERA or MIC) for the local participant in a given stage.
 // Uses stageRef to access the current participant's stream and updates the state (setIsDeviceStopped) accordingly.
-
 export const handleMediaToggle = (deviceType, stageRef, setIsDeviceStopped) => {
     // Check if the type is 'camera'; if so, toggle the video stream
     if (deviceType === CAMERA) {
