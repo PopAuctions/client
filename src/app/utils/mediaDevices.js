@@ -2,8 +2,8 @@ export const CAMERA = "camera";
 export const MIC = "mic";
 
 /**
-* Returns all devices available on the current device
-*/
+ * Returns all devices available on the current device
+ */
 export const getDevices = async () => {
     // Prevents issues on Safari/FF so devices are not blank
     await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -25,11 +25,11 @@ export const getDevices = async () => {
 };
 
 /**
-* Gets the media stream for the specified device ID and type.
-* @param {string} deviceId - The device ID.
-* @param {string} mediaType - The type of media ('video' or 'audio').
-* @returns {Promise<MediaStream>} - The resulting media stream.
-*/
+ * Gets the media stream for the specified device ID and type.
+ * @param {string} deviceId - The device ID.
+ * @param {string} mediaType - The type of media ('video' or 'audio').
+ * @returns {Promise<MediaStream>} - The resulting media stream.
+ */
 export const getMediaForDevices = async (deviceId, mediaType) => {
     const mediaConstraints = {
         video: {

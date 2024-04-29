@@ -1,27 +1,49 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Script from "next/script";
-import Header from "./components/Header";
-import Select from "./components/Select";
-import Input from './components/Input';
-import { getDevices } from "./utils/mediaDevices";
 
+import {
+  getDevices,
+  MIC,
+  CAMERA,
+} from "./utils/mediaDevices";
+
+import Header from "./components/Header";
+import Input from "./components/Input";
+import LocalParticipantVideo from "./components/LocalParticipantVideo";
+import RemoteParticipantVideos from "./components/RemoteParticipantVideos";
+import Select from "./components/Select";
+import { joinStage } from './utils/stagesUtils';
 
 export default function Home() {
+  // Initializing a state variable and its update function
   const [isInitializeComplete, setIsInitializeComplete] = useState(false);
+
+  // Using the useState hook to create and manage state for video and audio devices and their selections
   const [videoDevices, setVideoDevices] = useState([]); // Stores the available video devices
   const [audioDevices, setAudioDevices] = useState([]); // Stores the available audio devices
   const [selectedVideoDeviceId, setSelectedVideoDeviceId] = useState(null); // Tracks the selected video device
   const [selectedAudioDeviceId, setSelectedAudioDeviceId] = useState(null); // Tracks the selected audio device
 
-  const [participantToken, setParticipantToken] = useState(""); // which is necessary for participants to join a stage.
+  const [participantToken, setParticipantToken] = useState("");
 
-  const initialize = async () => {
-    // Call the handleDeviceUpdate function to update the video and audio devices
-    handleDeviceUpdate();
-    // Set the value of isInitializeComplete to true
-    setIsInitializeComplete(true);
-  };
+  // Initialize state variables for managing the current stage, connection status, participant list, and local participant information
+  const [isConnected, setIsConnected] = useState(false); // Tracks the connection status
+  const [participants, setParticipants] = useState([]); // Manages the list of participants
+  const [localParticipant, setLocalParticipant] = useState({}); // Manages the local participant information
+
+  // Create a ref for the stage to hold a reference to the IVS stage instance.
+  const stageRef = useRef(undefined);
+
+  // Create a ref for the strategy to hold a reference to the strategy configuration used in the IVS stage.
+  const strategyRef = useRef();
+
+  // Initialize a state variable to manage the muted status of the microphone
+  const [isMicMuted, setIsMicMuted] = useState(true);
+
+  // Initialize a state variable to manage the visibility status of the camera
+  const [isCameraHidden, setIsCameraHidden] = useState(false);
 
   const handleDeviceUpdate = async () => {
     try {
@@ -38,19 +60,67 @@ export default function Home() {
     }
   };
 
+  const updateLocalParticipantMedia = async () => {
+    const { participant, streams } = localParticipant;
+
+    // Create new local streams
+    const newVideoStream = await createLocalStageStream(
+      selectedVideoDeviceId,
+      CAMERA
+    );
+    const newAudioStream = await createLocalStageStream(
+      selectedAudioDeviceId,
+      MIC
+    );
+
+    // Update the streams array with the new streams
+    const updatedStreams = [newVideoStream, newAudioStream];
+
+    // Update the participant object with the new streams
+    const updatedParticipant = {
+      participant,
+      streams: updatedStreams,
+    };
+
+    setLocalParticipant(updatedParticipant);
+
+    strategyRef.current.updateTracks(newAudioStream, newVideoStream);
+    stageRef.current.refreshStrategy();
+  };
+
+  useEffect(() => {
+    //Check to ensure that the stage and the strategy have completed initialization
+    const isInitializingStreams =
+      !strategyRef.current?.audioTrack && !strategyRef.current?.videoTrack;
+    if (!isInitializeComplete || isInitializingStreams) return; // If initialization is not complete, return
+
+    if (localParticipant.streams) {
+      updateLocalParticipantMedia();
+    }
+  }, [selectedVideoDeviceId, selectedAudioDeviceId]);
+
+
+  const initialize = async () => {
+    handleDeviceUpdate();
+    setIsInitializeComplete(true);
+  };
 
   return (
     <div>
-      <Script src="https://web-broadcast.live-video.net/1.6.0/amazon-ivs-web-broadcast.js" onLoad={initialize}></Script>
+      <Script
+        src="https://web-broadcast.live-video.net/1.6.0/amazon-ivs-web-broadcast.js" // Load the Amazon IVS Web Broadcast JavaScript library
+        onLoad={initialize} // Call the 'initialize' function after the script has loaded
+      ></Script>
       <Header />
+      <hr />
       <div className="row">
         <Select
-          deviceType="Video"
+          deviceType="Camera"
           updateDevice={setSelectedVideoDeviceId}
           devices={videoDevices}
         />
         <Select
-          deviceType="Audio"
+          deviceType="Microphone"
           updateDevice={setSelectedAudioDeviceId}
           devices={audioDevices}
         />
@@ -59,7 +129,78 @@ export default function Home() {
           value={participantToken}
           onChange={setParticipantToken}
         />
+        {isInitializeComplete && (
+          <div className="button-container row">
+            <button
+              className="button"
+              onClick={() =>
+                joinStage(
+                  isInitializeComplete,
+                  participantToken,
+                  selectedAudioDeviceId,
+                  selectedVideoDeviceId,
+                  setIsConnected,
+                  setIsMicMuted,
+                  setLocalParticipant,
+                  setParticipants,
+                  strategyRef,
+                  stageRef
+                )
+              }
+            >
+              Join Stage
+            </button>
+            <button
+              className="button"
+            >
+              Leave Stage
+            </button>
+          </div>
+        )}
+        <br />
       </div>
+      {isConnected && (
+        <>
+          <h3>Local Participant</h3>
+          <LocalParticipantVideo
+            localParticipantInfo={localParticipant}
+            isInitializeComplete={isInitializeComplete}
+            participantSize={participants.length}
+          />
+        </>
+      )}
+      {isConnected && (
+        <div className="static-controls">
+          <button
+            onClick={() =>
+              handleMediaToggle(MIC, stageRef, setIsMicMuted)
+            }
+            className="button"
+          >
+            {isMicMuted ? "Unmute Mic" : "Mute Mic"}
+          </button>
+          <button
+            onClick={() =>
+              handleMediaToggle(CAMERA, stageRef, setIsCameraHidden)
+            }
+            className="button"
+          >
+            {isCameraHidden ? "Unhide Camera" : "Hide Camera"}
+          </button>
+        </div>
+      )}
+      {isConnected && (
+        <>
+          <h3>Remote Participants</h3>{" "}
+          <div className="center">
+            <RemoteParticipantVideos
+              isInitializeComplete={isInitializeComplete}
+              participants={participants}
+              participantSize={participants.length}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }
