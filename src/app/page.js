@@ -152,6 +152,7 @@ export default function Home() {
             </button>
             <button
               className="button"
+              onClick={() => leaveStage(stageRef.current, setIsConnected)}
             >
               Leave Stage
             </button>
